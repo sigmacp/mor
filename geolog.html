@@ -1,0 +1,1233 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width=device-width">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <link rel="stylesheet" href="css/leaflet.css">
+        <link rel="stylesheet" href="css/L.Control.Layers.Tree.css">
+        <link rel="stylesheet" href="css/L.Control.Locate.min.css">
+        <link rel="stylesheet" href="css/qgis2web.css">
+        <link rel="stylesheet" href="css/fontawesome-all.min.css">
+        <link rel="stylesheet" href="css/leaflet-search.css">
+        <link rel="stylesheet" href="css/filter.css">
+<link rel="stylesheet" href="css/nouislider.min.css">
+        <link rel="stylesheet" href="css/leaflet-control-geocoder.Geocoder.css">
+        <link rel="stylesheet" href="css/leaflet-measure.css">
+        <style>
+        html, body, #map {
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            margin: 0;
+        }
+        </style>
+        <title>Mi mapa en web</title>
+    </head>
+    <body>
+        <div id="map">
+        </div>
+        <script src="js/qgis2web_expressions.js"></script>
+        <script src="js/leaflet.js"></script>
+        <script src="js/L.Control.Layers.Tree.min.js"></script>
+        <script src="js/L.Control.Locate.min.js"></script>
+        <script src="js/leaflet.rotatedMarker.js"></script>
+        <script src="js/leaflet.pattern.js"></script>
+        <script src="js/leaflet-hash.js"></script>
+        <script src="js/Autolinker.min.js"></script>
+        <script src="js/rbush.min.js"></script>
+        <script src="js/labelgun.min.js"></script>
+        <script src="js/labels.js"></script>
+        <script src="js/leaflet-control-geocoder.Geocoder.js"></script>
+        <script src="js/leaflet-measure.js"></script>
+        <script src="js/leaflet-search.js"></script>
+        <script src="js/tailDT.js"></script>
+<script src="js/nouislider.min.js"></script>
+<script src="js/wNumb.js"></script>
+        <script src="data/Unidadesgeolgicas_3.js"></script>
+        <script src="data/Centroseruptivos_4.js"></script>
+        <script>
+        var highlightLayer;
+        function highlightFeature(e) {
+            highlightLayer = e.target;
+
+            if (e.target.feature.geometry.type === 'LineString' || e.target.feature.geometry.type === 'MultiLineString') {
+              highlightLayer.setStyle({
+                color: '#ffff00',
+              });
+            } else {
+              highlightLayer.setStyle({
+                fillColor: '#ffff00',
+                fillOpacity: 1
+              });
+            }
+            highlightLayer.openPopup();
+        }
+        var map = L.map('map', {
+            zoomControl:false, maxZoom:28, minZoom:1
+        }).fitBounds([[19.407462387520095,-101.74608128163013],[19.937677720015355,-100.72843602722287]]);
+        var hash = new L.Hash(map);
+        map.attributionControl.setPrefix('<a href="https://github.com/tomchadwin/qgis2web" target="_blank">qgis2web</a> &middot; <a href="https://leafletjs.com" title="A JS library for interactive maps">Leaflet</a> &middot; <a href="https://qgis.org">QGIS</a>');
+        var autolinker = new Autolinker({truncate: {length: 30, location: 'smart'}});
+        // remove popup's row if "visible-with-data"
+        function removeEmptyRowsFromPopupContent(content, feature) {
+         var tempDiv = document.createElement('div');
+         tempDiv.innerHTML = content;
+         var rows = tempDiv.querySelectorAll('tr');
+         for (var i = 0; i < rows.length; i++) {
+             var td = rows[i].querySelector('td.visible-with-data');
+             var key = td ? td.id : '';
+             if (td && td.classList.contains('visible-with-data') && feature.properties[key] == null) {
+                 rows[i].parentNode.removeChild(rows[i]);
+             }
+         }
+         return tempDiv.innerHTML;
+        }
+        // add class to format popup if it contains media
+		function addClassToPopupIfMedia(content, popup) {
+			var tempDiv = document.createElement('div');
+			tempDiv.innerHTML = content;
+			if (tempDiv.querySelector('td img')) {
+				popup._contentNode.classList.add('media');
+					// Delay to force the redraw
+					setTimeout(function() {
+						popup.update();
+					}, 10);
+			} else {
+				popup._contentNode.classList.remove('media');
+			}
+		}
+        var title = new L.Control({'position':'topleft'});
+        title.onAdd = function (map) {
+            this._div = L.DomUtil.create('div', 'info');
+            this.update();
+            return this._div;
+        };
+        title.update = function () {
+            this._div.innerHTML = '<h2>Mi mapa en web</h2>';
+        };
+        title.addTo(map);
+        var zoomControl = L.control.zoom({
+            position: 'topleft'
+        }).addTo(map);
+        L.control.locate({locateOptions: {maxZoom: 19}}).addTo(map);
+        var measureControl = new L.Control.Measure({
+            position: 'topleft',
+            primaryLengthUnit: 'meters',
+            secondaryLengthUnit: 'kilometers',
+            primaryAreaUnit: 'sqmeters',
+            secondaryAreaUnit: 'hectares'
+        });
+        measureControl.addTo(map);
+        document.getElementsByClassName('leaflet-control-measure-toggle')[0].innerHTML = '';
+        document.getElementsByClassName('leaflet-control-measure-toggle')[0].className += ' fas fa-ruler';
+        var bounds_group = new L.featureGroup([]);
+        function setBounds() {
+        }
+        map.createPane('pane_GoogleTerrain_0');
+        map.getPane('pane_GoogleTerrain_0').style.zIndex = 400;
+        var layer_GoogleTerrain_0 = L.tileLayer('https://mt1.google.com/vt/lyrs=p&x={x}&y={y}&z={z}', {
+            pane: 'pane_GoogleTerrain_0',
+            opacity: 1.0,
+            attribution: '<a href="https://www.google.at/permissions/geoguidelines/attr-guide.html">Map data ©2015 Google</a>',
+            minZoom: 1,
+            maxZoom: 28,
+            minNativeZoom: 0,
+            maxNativeZoom: 20
+        });
+        layer_GoogleTerrain_0;
+        map.addLayer(layer_GoogleTerrain_0);
+        map.createPane('pane_GoogleLabels_1');
+        map.getPane('pane_GoogleLabels_1').style.zIndex = 401;
+        var layer_GoogleLabels_1 = L.tileLayer('https://mt1.google.com/vt/lyrs=h&x={x}&y={y}&z={z}', {
+            pane: 'pane_GoogleLabels_1',
+            opacity: 1.0,
+            attribution: '<a href="https://www.google.at/permissions/geoguidelines/attr-guide.html">Map data ©2015 Google</a>',
+            minZoom: 1,
+            maxZoom: 28,
+            minNativeZoom: 0,
+            maxNativeZoom: 20
+        });
+        layer_GoogleLabels_1;
+        map.addLayer(layer_GoogleLabels_1);
+        map.createPane('pane_GoogleSatellite_2');
+        map.getPane('pane_GoogleSatellite_2').style.zIndex = 402;
+        var layer_GoogleSatellite_2 = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+            pane: 'pane_GoogleSatellite_2',
+            opacity: 1.0,
+            attribution: '<a href="https://www.google.at/permissions/geoguidelines/attr-guide.html">Map data ©2015 Google</a>',
+            minZoom: 1,
+            maxZoom: 28,
+            minNativeZoom: 0,
+            maxNativeZoom: 20
+        });
+        layer_GoogleSatellite_2;
+        map.addLayer(layer_GoogleSatellite_2);
+        function pop_Unidadesgeolgicas_3(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                    if (typeof layer.closePopup == 'function') {
+                        layer.closePopup();
+                    } else {
+                        layer.eachLayer(function(feature){
+                            feature.closePopup()
+                        });
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['Id'] !== null ? autolinker.link(feature.properties['Id'].toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['CLAVE2'] !== null ? autolinker.link(feature.properties['CLAVE2'].toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Nombre de la unidad</th>\
+                        <td>' + (feature.properties['Nombre'] !== null ? autolinker.link(feature.properties['Nombre'].toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Unidadesgeolgicas_3_0(feature) {
+            switch(String(feature.properties['Nombre'])) {
+                case 'Conos La Trampa':
+                    return {
+                pane: 'pane_Unidadesgeolgicas_3',
+                opacity: 1,
+                color: 'rgba(35,35,35,0.506)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(207,195,24,0.506)',
+                interactive: true,
+            }
+                    break;
+                case 'Conos y derrames Pelón':
+                    return {
+                pane: 'pane_Unidadesgeolgicas_3',
+                opacity: 1,
+                color: 'rgba(35,35,35,0.506)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(195,232,126,0.506)',
+                interactive: true,
+            }
+                    break;
+                case 'Conos y derrames Zapata':
+                    return {
+                pane: 'pane_Unidadesgeolgicas_3',
+                opacity: 1,
+                color: 'rgba(35,35,35,0.506)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(130,204,106,0.506)',
+                interactive: true,
+            }
+                    break;
+                case 'Conos y maar Rancho Seco-Alberca':
+                    return {
+                pane: 'pane_Unidadesgeolgicas_3',
+                opacity: 1,
+                color: 'rgba(35,35,35,0.506)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(230,41,217,0.506)',
+                interactive: true,
+            }
+                    break;
+                case 'Conos y spatters Coro Grande':
+                    return {
+                pane: 'pane_Unidadesgeolgicas_3',
+                opacity: 1,
+                color: 'rgba(35,35,35,0.506)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(212,109,183,0.506)',
+                interactive: true,
+            }
+                    break;
+                case 'Conos y spatters Melón-Tendeparacua':
+                    return {
+                pane: 'pane_Unidadesgeolgicas_3',
+                opacity: 1,
+                color: 'rgba(35,35,35,0.506)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(21,240,101,0.506)',
+                interactive: true,
+            }
+                    break;
+                case 'Depósitos epiclásticos':
+                    return {
+                pane: 'pane_Unidadesgeolgicas_3',
+                opacity: 1,
+                color: 'rgba(35,35,35,0.506)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(109,129,220,0.506)',
+                interactive: true,
+            }
+                    break;
+                case 'Depósitos Piroclásticos El Porvenir':
+                    return {
+                pane: 'pane_Unidadesgeolgicas_3',
+                opacity: 1,
+                color: 'rgba(35,35,35,0.506)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(168,217,128,0.506)',
+                interactive: true,
+            }
+                    break;
+                case 'Depósitos superficiales':
+                    return {
+                pane: 'pane_Unidadesgeolgicas_3',
+                opacity: 1,
+                color: 'rgba(35,35,35,0.506)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(208,40,57,0.506)',
+                interactive: true,
+            }
+                    break;
+                case 'Derrames de lava Cuitzeo':
+                    return {
+                pane: 'pane_Unidadesgeolgicas_3',
+                opacity: 1,
+                color: 'rgba(35,35,35,0.506)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(223,127,177,0.506)',
+                interactive: true,
+            }
+                    break;
+                case 'Derrames de lava La Leonera':
+                    return {
+                pane: 'pane_Unidadesgeolgicas_3',
+                opacity: 1,
+                color: 'rgba(35,35,35,0.506)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(223,150,116,0.506)',
+                interactive: true,
+            }
+                    break;
+                case 'Domos del Punhuato':
+                    return {
+                pane: 'pane_Unidadesgeolgicas_3',
+                opacity: 1,
+                color: 'rgba(35,35,35,0.506)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(168,31,236,0.506)',
+                interactive: true,
+            }
+                    break;
+                case 'Domos El Burro-La Taza':
+                    return {
+                pane: 'pane_Unidadesgeolgicas_3',
+                opacity: 1,
+                color: 'rgba(35,35,35,0.506)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(208,93,80,0.506)',
+                interactive: true,
+            }
+                    break;
+                case 'Domos El Tzirate-Huracán':
+                    return {
+                pane: 'pane_Unidadesgeolgicas_3',
+                opacity: 1,
+                color: 'rgba(35,35,35,0.506)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(127,189,231,0.506)',
+                interactive: true,
+            }
+                    break;
+                case 'Domos La Cruz':
+                    return {
+                pane: 'pane_Unidadesgeolgicas_3',
+                opacity: 1,
+                color: 'rgba(35,35,35,0.506)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(144,93,206,0.506)',
+                interactive: true,
+            }
+                    break;
+                case 'Domos La Muela':
+                    return {
+                pane: 'pane_Unidadesgeolgicas_3',
+                opacity: 1,
+                color: 'rgba(35,35,35,0.506)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(211,83,231,0.506)',
+                interactive: true,
+            }
+                    break;
+                case 'Domos postcaldera de Atécuaro':
+                    return {
+                pane: 'pane_Unidadesgeolgicas_3',
+                opacity: 1,
+                color: 'rgba(35,35,35,0.506)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(58,204,53,0.506)',
+                interactive: true,
+            }
+                    break;
+                case 'Domos y derrames Mil Cumbres':
+                    return {
+                pane: 'pane_Unidadesgeolgicas_3',
+                opacity: 1,
+                color: 'rgba(35,35,35,0.506)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(221,151,77,0.506)',
+                interactive: true,
+            }
+                    break;
+                case 'Domos y derrames Sta. Genoveva':
+                    return {
+                pane: 'pane_Unidadesgeolgicas_3',
+                opacity: 1,
+                color: 'rgba(35,35,35,0.506)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(157,135,222,0.506)',
+                interactive: true,
+            }
+                    break;
+                case 'Domos y derrames Zoromuta-Divisadero':
+                    return {
+                pane: 'pane_Unidadesgeolgicas_3',
+                opacity: 1,
+                color: 'rgba(35,35,35,0.506)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(65,220,155,0.506)',
+                interactive: true,
+            }
+                    break;
+                case 'Escudo El Frijol':
+                    return {
+                pane: 'pane_Unidadesgeolgicas_3',
+                opacity: 1,
+                color: 'rgba(35,35,35,0.506)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(137,217,237,0.506)',
+                interactive: true,
+            }
+                    break;
+                case 'Escudos Águila-Tetillas':
+                    return {
+                pane: 'pane_Unidadesgeolgicas_3',
+                opacity: 1,
+                color: 'rgba(35,35,35,0.506)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(83,235,235,0.506)',
+                interactive: true,
+            }
+                    break;
+                case 'Escudos Quinceo-Picacho':
+                    return {
+                pane: 'pane_Unidadesgeolgicas_3',
+                opacity: 1,
+                color: 'rgba(35,35,35,0.506)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(214,43,97,0.506)',
+                interactive: true,
+            }
+                    break;
+                case 'Ignimbrita Atécuaro-Morelia':
+                    return {
+                pane: 'pane_Unidadesgeolgicas_3',
+                opacity: 1,
+                color: 'rgba(35,35,35,0.506)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(111,225,200,0.506)',
+                interactive: true,
+            }
+                    break;
+                case 'Ignimbrita Cuitzeo':
+                    return {
+                pane: 'pane_Unidadesgeolgicas_3',
+                opacity: 1,
+                color: 'rgba(35,35,35,0.506)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(236,194,86,0.506)',
+                interactive: true,
+            }
+                    break;
+                case 'Ignimbrita La Escalera-Puerto La Sosa':
+                    return {
+                pane: 'pane_Unidadesgeolgicas_3',
+                opacity: 1,
+                color: 'rgba(35,35,35,0.506)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(213,234,79,0.506)',
+                interactive: true,
+            }
+                    break;
+                case 'Secuencia fluvio-lacustre Morelia-Charo':
+                    return {
+                pane: 'pane_Unidadesgeolgicas_3',
+                opacity: 1,
+                color: 'rgba(35,35,35,0.506)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(37,214,66,0.506)',
+                interactive: true,
+            }
+                    break;
+                case 'Sucesión Tafetán':
+                    return {
+                pane: 'pane_Unidadesgeolgicas_3',
+                opacity: 1,
+                color: 'rgba(35,35,35,0.506)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1.0, 
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(75,127,209,0.506)',
+                interactive: true,
+            }
+                    break;
+            }
+        }
+        map.createPane('pane_Unidadesgeolgicas_3');
+        map.getPane('pane_Unidadesgeolgicas_3').style.zIndex = 403;
+        map.getPane('pane_Unidadesgeolgicas_3').style['mix-blend-mode'] = 'normal';
+        var layer_Unidadesgeolgicas_3 = new L.geoJson(json_Unidadesgeolgicas_3, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_Unidadesgeolgicas_3',
+            layerName: 'layer_Unidadesgeolgicas_3',
+            pane: 'pane_Unidadesgeolgicas_3',
+            onEachFeature: pop_Unidadesgeolgicas_3,
+            style: style_Unidadesgeolgicas_3_0,
+        });
+        bounds_group.addLayer(layer_Unidadesgeolgicas_3);
+        map.addLayer(layer_Unidadesgeolgicas_3);
+        function pop_Centroseruptivos_4(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                    if (typeof layer.closePopup == 'function') {
+                        layer.closePopup();
+                    } else {
+                        layer.eachLayer(function(feature){
+                            feature.closePopup()
+                        });
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <td colspan="2">' + (feature.properties['Id'] !== null ? autolinker.link(feature.properties['Id'].toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Tipo de centro</th>\
+                        <td>' + (feature.properties['Tipo'] !== null ? autolinker.link(feature.properties['Tipo'].toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Nombre</th>\
+                        <td>' + (feature.properties['Nombre'] !== null ? autolinker.link(feature.properties['Nombre'].toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Centroseruptivos_4_0(feature) {
+            switch(String(feature.properties['Tipo'])) {
+                case 'Caldera':
+                    return {
+                pane: 'pane_Centroseruptivos_4',
+                radius: 4.0,
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(116,195,202,1.0)',
+                interactive: true,
+            }
+                    break;
+                case 'Cono':
+                    return {
+                pane: 'pane_Centroseruptivos_4',
+                radius: 4.0,
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(144,222,84,1.0)',
+                interactive: true,
+            }
+                    break;
+                case 'Domo':
+                    return {
+                pane: 'pane_Centroseruptivos_4',
+                radius: 4.0,
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(230,198,57,1.0)',
+                interactive: true,
+            }
+                    break;
+                case 'Domo erosionado':
+                    return {
+                pane: 'pane_Centroseruptivos_4',
+                radius: 4.0,
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(214,44,160,1.0)',
+                interactive: true,
+            }
+                    break;
+                case 'Escudo':
+                    return {
+                pane: 'pane_Centroseruptivos_4',
+                radius: 4.0,
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(117,131,204,1.0)',
+                interactive: true,
+            }
+                    break;
+                case 'Maar':
+                    return {
+                pane: 'pane_Centroseruptivos_4',
+                radius: 4.0,
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(52,212,105,1.0)',
+                interactive: true,
+            }
+                    break;
+                case 'Spatter':
+                    return {
+                pane: 'pane_Centroseruptivos_4',
+                radius: 4.0,
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(145,30,228,1.0)',
+                interactive: true,
+            }
+                    break;
+            }
+        }
+        map.createPane('pane_Centroseruptivos_4');
+        map.getPane('pane_Centroseruptivos_4').style.zIndex = 404;
+        map.getPane('pane_Centroseruptivos_4').style['mix-blend-mode'] = 'normal';
+        var layer_Centroseruptivos_4 = new L.geoJson(json_Centroseruptivos_4, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_Centroseruptivos_4',
+            layerName: 'layer_Centroseruptivos_4',
+            pane: 'pane_Centroseruptivos_4',
+            onEachFeature: pop_Centroseruptivos_4,
+            pointToLayer: function (feature, latlng) {
+                var context = {
+                    feature: feature,
+                    variables: {}
+                };
+                return L.circleMarker(latlng, style_Centroseruptivos_4_0(feature));
+            },
+        });
+        bounds_group.addLayer(layer_Centroseruptivos_4);
+        map.addLayer(layer_Centroseruptivos_4);
+        var osmGeocoder = new L.Control.Geocoder({
+            collapsed: true,
+            position: 'topleft',
+            text: 'Search',
+            title: 'Testing'
+        }).addTo(map);
+        document.getElementsByClassName('leaflet-control-geocoder-icon')[0]
+        .className += ' fa fa-search';
+        document.getElementsByClassName('leaflet-control-geocoder-icon')[0]
+        .title += 'Search for a place';
+        var baseMaps = {};
+        var overlaysTree = [
+            {label: 'Centros eruptivos<br /><table><tr><td style="text-align: center;"><img src="legend/Centroseruptivos_4_Caldera0.png" /></td><td>Caldera</td></tr><tr><td style="text-align: center;"><img src="legend/Centroseruptivos_4_Cono1.png" /></td><td>Cono</td></tr><tr><td style="text-align: center;"><img src="legend/Centroseruptivos_4_Domo2.png" /></td><td>Domo</td></tr><tr><td style="text-align: center;"><img src="legend/Centroseruptivos_4_Domoerosionado3.png" /></td><td>Domo erosionado</td></tr><tr><td style="text-align: center;"><img src="legend/Centroseruptivos_4_Escudo4.png" /></td><td>Escudo</td></tr><tr><td style="text-align: center;"><img src="legend/Centroseruptivos_4_Maar5.png" /></td><td>Maar</td></tr><tr><td style="text-align: center;"><img src="legend/Centroseruptivos_4_Spatter6.png" /></td><td>Spatter</td></tr></table>', layer: layer_Centroseruptivos_4},
+            {label: 'Unidades geológicas<br /><table><tr><td style="text-align: center;"><img src="legend/Unidadesgeolgicas_3_ConosLaTrampa0.png" /></td><td>Conos La Trampa</td></tr><tr><td style="text-align: center;"><img src="legend/Unidadesgeolgicas_3_ConosyderramesPelón1.png" /></td><td>Conos y derrames Pelón</td></tr><tr><td style="text-align: center;"><img src="legend/Unidadesgeolgicas_3_ConosyderramesZapata2.png" /></td><td>Conos y derrames Zapata</td></tr><tr><td style="text-align: center;"><img src="legend/Unidadesgeolgicas_3_ConosymaarRanchoSecoAlberca3.png" /></td><td>Conos y maar Rancho Seco-Alberca</td></tr><tr><td style="text-align: center;"><img src="legend/Unidadesgeolgicas_3_ConosyspattersCoroGrande4.png" /></td><td>Conos y spatters Coro Grande</td></tr><tr><td style="text-align: center;"><img src="legend/Unidadesgeolgicas_3_ConosyspattersMelónTendeparacua5.png" /></td><td>Conos y spatters Melón-Tendeparacua</td></tr><tr><td style="text-align: center;"><img src="legend/Unidadesgeolgicas_3_Depósitosepiclásticos6.png" /></td><td>Depósitos epiclásticos</td></tr><tr><td style="text-align: center;"><img src="legend/Unidadesgeolgicas_3_DepósitosPiroclásticosElPorvenir7.png" /></td><td>Depósitos Piroclásticos El Porvenir</td></tr><tr><td style="text-align: center;"><img src="legend/Unidadesgeolgicas_3_Depósitossuperficiales8.png" /></td><td>Depósitos superficiales</td></tr><tr><td style="text-align: center;"><img src="legend/Unidadesgeolgicas_3_DerramesdelavaCuitzeo9.png" /></td><td>Derrames de lava Cuitzeo</td></tr><tr><td style="text-align: center;"><img src="legend/Unidadesgeolgicas_3_DerramesdelavaLaLeonera10.png" /></td><td>Derrames de lava La Leonera</td></tr><tr><td style="text-align: center;"><img src="legend/Unidadesgeolgicas_3_DomosdelPunhuato11.png" /></td><td>Domos del Punhuato</td></tr><tr><td style="text-align: center;"><img src="legend/Unidadesgeolgicas_3_DomosElBurroLaTaza12.png" /></td><td>Domos El Burro-La Taza</td></tr><tr><td style="text-align: center;"><img src="legend/Unidadesgeolgicas_3_DomosElTzirateHuracán13.png" /></td><td>Domos El Tzirate-Huracán</td></tr><tr><td style="text-align: center;"><img src="legend/Unidadesgeolgicas_3_DomosLaCruz14.png" /></td><td>Domos La Cruz</td></tr><tr><td style="text-align: center;"><img src="legend/Unidadesgeolgicas_3_DomosLaMuela15.png" /></td><td>Domos La Muela</td></tr><tr><td style="text-align: center;"><img src="legend/Unidadesgeolgicas_3_DomospostcalderadeAtécuaro16.png" /></td><td>Domos postcaldera de Atécuaro</td></tr><tr><td style="text-align: center;"><img src="legend/Unidadesgeolgicas_3_DomosyderramesMilCumbres17.png" /></td><td>Domos y derrames Mil Cumbres</td></tr><tr><td style="text-align: center;"><img src="legend/Unidadesgeolgicas_3_DomosyderramesStaGenoveva18.png" /></td><td>Domos y derrames Sta. Genoveva</td></tr><tr><td style="text-align: center;"><img src="legend/Unidadesgeolgicas_3_DomosyderramesZoromutaDivisadero19.png" /></td><td>Domos y derrames Zoromuta-Divisadero</td></tr><tr><td style="text-align: center;"><img src="legend/Unidadesgeolgicas_3_EscudoElFrijol20.png" /></td><td>Escudo El Frijol</td></tr><tr><td style="text-align: center;"><img src="legend/Unidadesgeolgicas_3_EscudosÁguilaTetillas21.png" /></td><td>Escudos Águila-Tetillas</td></tr><tr><td style="text-align: center;"><img src="legend/Unidadesgeolgicas_3_EscudosQuinceoPicacho22.png" /></td><td>Escudos Quinceo-Picacho</td></tr><tr><td style="text-align: center;"><img src="legend/Unidadesgeolgicas_3_IgnimbritaAtécuaroMorelia23.png" /></td><td>Ignimbrita Atécuaro-Morelia</td></tr><tr><td style="text-align: center;"><img src="legend/Unidadesgeolgicas_3_IgnimbritaCuitzeo24.png" /></td><td>Ignimbrita Cuitzeo</td></tr><tr><td style="text-align: center;"><img src="legend/Unidadesgeolgicas_3_IgnimbritaLaEscaleraPuertoLaSosa25.png" /></td><td>Ignimbrita La Escalera-Puerto La Sosa</td></tr><tr><td style="text-align: center;"><img src="legend/Unidadesgeolgicas_3_SecuenciafluviolacustreMoreliaCharo26.png" /></td><td>Secuencia fluvio-lacustre Morelia-Charo</td></tr><tr><td style="text-align: center;"><img src="legend/Unidadesgeolgicas_3_SucesiónTafetán27.png" /></td><td>Sucesión Tafetán</td></tr></table>', layer: layer_Unidadesgeolgicas_3},
+            {label: "Google Satellite", layer: layer_GoogleSatellite_2},
+            {label: "Google Labels", layer: layer_GoogleLabels_1},
+            {label: "Google Terrain", layer: layer_GoogleTerrain_0},]
+        var lay = L.control.layers.tree(null, overlaysTree,{
+            //namedToggle: true,
+            //selectorBack: false,
+            //closedSymbol: '&#8862; &#x1f5c0;',
+            //openedSymbol: '&#8863; &#x1f5c1;',
+            //collapseAll: 'Collapse all',
+            //expandAll: 'Expand all',
+            collapsed: true,
+        });
+        lay.addTo(map);
+        setBounds();
+        map.addControl(new L.Control.Search({
+            layer: layer_Unidadesgeolgicas_3,
+            initial: false,
+            hideMarkerOnCollapse: true,
+            propertyName: 'Nombre'}));
+        document.getElementsByClassName('search-button')[0].className +=
+         ' fa fa-binoculars';
+        var mapDiv = document.getElementById('map');
+        var row = document.createElement('div');
+        row.className="row";
+        row.id="all";
+        row.style.height = "100%";
+        var col1 = document.createElement('div');
+        col1.className="col9";
+        col1.id = "mapWindow";
+        col1.style.height = "99%";
+        col1.style.width = "80%";
+        col1.style.display = "inline-block";
+        var col2 = document.createElement('div');
+        col2.className="col3";
+        col2.id = "menu";
+        col2.style.display = "inline-block";
+        mapDiv.parentNode.insertBefore(row, mapDiv);
+        document.getElementById("all").appendChild(col1);
+        document.getElementById("all").appendChild(col2);
+        col1.appendChild(mapDiv)
+        var Filters = {"Tipo": "str","Nombre": "str"};
+        function filterFunc() {
+          map.eachLayer(function(lyr){
+          if ("options" in lyr && "dataVar" in lyr["options"]){
+            features = this[lyr["options"]["dataVar"]].features.slice(0);
+            try{
+              for (key in Filters){
+                keyS = key.replace(/[^a-zA-Z0-9_]/g, "")
+                if (Filters[key] == "str" || Filters[key] == "bool"){
+                  var selection = [];
+                  var options = document.getElementById("sel_" + keyS).options
+                  for (var i=0; i < options.length; i++) {
+                    if (options[i].selected) selection.push(options[i].value);
+                  }
+                    try{
+                      if (key in features[0].properties){
+                        for (i = features.length - 1;
+                          i >= 0; --i){
+                          if (selection.indexOf(
+                          features[i].properties[key])<0
+                          && selection.length>0) {
+                          features.splice(i,1);
+                          }
+                        }
+                      }
+                    } catch(err){
+                  }
+                }
+                if (Filters[key] == "int"){
+                  sliderVals =  document.getElementById(
+                    "div_" + keyS).noUiSlider.get();
+                  try{
+                    if (key in features[0].properties){
+                    for (i = features.length - 1; i >= 0; --i){
+                      if (parseInt(features[i].properties[key])
+                          < sliderVals[0]
+                          || parseInt(features[i].properties[key])
+                          > sliderVals[1]){
+                            features.splice(i,1);
+                          }
+                        }
+                      }
+                    } catch(err){
+                    }
+                  }
+                if (Filters[key] == "real"){
+                  sliderVals =  document.getElementById(
+                    "div_" + keyS).noUiSlider.get();
+                  try{
+                    if (key in features[0].properties){
+                    for (i = features.length - 1; i >= 0; --i){
+                      if (features[i].properties[key]
+                          < sliderVals[0]
+                          || features[i].properties[key]
+                          > sliderVals[1]){
+                            features.splice(i,1);
+                          }
+                        }
+                      }
+                    } catch(err){
+                    }
+                  }
+                if (Filters[key] == "date"
+                  || Filters[key] == "datetime"
+                  || Filters[key] == "time"){
+                  try{
+                    if (key in features[0].properties){
+                      HTMLkey = key.replace(/[&\/\\#,+()$~%.'":*?<>{} ]/g, '');
+                      startdate = document.getElementById("dat_" +
+                        HTMLkey + "_date1").value.replace(" ", "T");
+                      enddate = document.getElementById("dat_" +
+                        HTMLkey + "_date2").value.replace(" ", "T");
+                      for (i = features.length - 1; i >= 0; --i){
+                        if (features[i].properties[key] < startdate
+                          || features[i].properties[key] > enddate){
+                          features.splice(i,1);
+                        }
+                      }
+                    }
+                  } catch(err){
+                  }
+                }
+              }
+            } catch(err){
+            }
+          this[lyr["options"]["layerName"]].clearLayers();
+          this[lyr["options"]["layerName"]].addData(features);
+          }
+          })
+        }
+            document.getElementById("menu").appendChild(
+                document.createElement("div"));
+            var div_Tipo = document.createElement('div');
+            div_Tipo.id = "div_Tipo";
+            div_Tipo.className= "filterselect";
+            document.getElementById("menu").appendChild(div_Tipo);
+            sel_Tipo = document.createElement('select');
+            sel_Tipo.multiple = true;
+            sel_Tipo.size = 7;
+            sel_Tipo.id = "sel_Tipo";
+            var Tipo_options_str = "<option value='' unselected></option>";
+            sel_Tipo.onchange = function(){filterFunc()};
+            Tipo_options_str  += '<option value="Caldera">Caldera</option>';
+            Tipo_options_str  += '<option value="Cono">Cono</option>';
+            Tipo_options_str  += '<option value="Domo">Domo</option>';
+            Tipo_options_str  += '<option value="Domo erosionado">Domo erosionado</option>';
+            Tipo_options_str  += '<option value="Escudo">Escudo</option>';
+            Tipo_options_str  += '<option value="Maar">Maar</option>';
+            Tipo_options_str  += '<option value="Spatter">Spatter</option>';
+            sel_Tipo.innerHTML = Tipo_options_str;
+            div_Tipo.appendChild(sel_Tipo);
+            var lab_Tipo = document.createElement('div');
+            lab_Tipo.innerHTML = 'Tipo';
+            lab_Tipo.className = 'filterlabel';
+            div_Tipo.appendChild(lab_Tipo);
+            var reset_Tipo = document.createElement('div');
+            reset_Tipo.innerHTML = 'clear filter';
+            reset_Tipo.className = 'filterlabel';
+            reset_Tipo.onclick = function() {
+                var options = document.getElementById("sel_Tipo").options;
+                for (var i=0; i < options.length; i++) {
+                    options[i].selected = false;
+                }
+                filterFunc();
+            };
+            div_Tipo.appendChild(reset_Tipo);
+            document.getElementById("menu").appendChild(
+                document.createElement("div"));
+            var div_Nombre = document.createElement('div');
+            div_Nombre.id = "div_Nombre";
+            div_Nombre.className= "filterselect";
+            document.getElementById("menu").appendChild(div_Nombre);
+            sel_Nombre = document.createElement('select');
+            sel_Nombre.multiple = true;
+            sel_Nombre.size = 10;
+            sel_Nombre.id = "sel_Nombre";
+            var Nombre_options_str = "<option value='' unselected></option>";
+            sel_Nombre.onchange = function(){filterFunc()};
+            Nombre_options_str  += '<option value="Agua Escondida">Agua Escondida</option>';
+            Nombre_options_str  += '<option value="Aguacatito">Aguacatito</option>';
+            Nombre_options_str  += '<option value="Aguila Norte">Aguila Norte</option>';
+            Nombre_options_str  += '<option value="Aguila Oeste">Aguila Oeste</option>';
+            Nombre_options_str  += '<option value="Atzimbo">Atzimbo</option>';
+            Nombre_options_str  += '<option value="Atécuaro">Atécuaro</option>';
+            Nombre_options_str  += '<option value="Biricuaran">Biricuaran</option>';
+            Nombre_options_str  += '<option value="Buena Vista">Buena Vista</option>';
+            Nombre_options_str  += '<option value="Buenavista">Buenavista</option>';
+            Nombre_options_str  += '<option value="C. Blanco">C. Blanco</option>';
+            Nombre_options_str  += '<option value="C. Canacurio">C. Canacurio</option>';
+            Nombre_options_str  += '<option value="C. Caracol">C. Caracol</option>';
+            Nombre_options_str  += '<option value="C. Cuates">C. Cuates</option>';
+            Nombre_options_str  += '<option value="C. Curcha">C. Curcha</option>';
+            Nombre_options_str  += '<option value="C. El Aguacate">C. El Aguacate</option>';
+            Nombre_options_str  += '<option value="C. El Venado">C. El Venado</option>';
+            Nombre_options_str  += '<option value="C. La Batea">C. La Batea</option>';
+            Nombre_options_str  += '<option value="C. La Peña">C. La Peña</option>';
+            Nombre_options_str  += '<option value="C. La Trampa">C. La Trampa</option>';
+            Nombre_options_str  += '<option value="C. Largo">C. Largo</option>';
+            Nombre_options_str  += '<option value="C. Las Ánimas">C. Las Ánimas</option>';
+            Nombre_options_str  += '<option value="C. Los Pinos">C. Los Pinos</option>';
+            Nombre_options_str  += '<option value="C. Mora">C. Mora</option>';
+            Nombre_options_str  += '<option value="C. Pelón">C. Pelón</option>';
+            Nombre_options_str  += '<option value="C. Verde">C. Verde</option>';
+            Nombre_options_str  += '<option value="C. de Aparicio">C. de Aparicio</option>';
+            Nombre_options_str  += '<option value="Carpintero">Carpintero</option>';
+            Nombre_options_str  += '<option value="Cayihuanatin">Cayihuanatin</option>';
+            Nombre_options_str  += '<option value="Cerritos">Cerritos</option>';
+            Nombre_options_str  += '<option value="Cerro Azul">Cerro Azul</option>';
+            Nombre_options_str  += '<option value="Cerro Blanco">Cerro Blanco</option>';
+            Nombre_options_str  += '<option value="Cerro Chino">Cerro Chino</option>';
+            Nombre_options_str  += '<option value="Cerro Colorado">Cerro Colorado</option>';
+            Nombre_options_str  += '<option value="Cerro Cuates">Cerro Cuates</option>';
+            Nombre_options_str  += '<option value="Cerro Hueco">Cerro Hueco</option>';
+            Nombre_options_str  += '<option value="Cerro Pelón">Cerro Pelón</option>';
+            Nombre_options_str  += '<option value="Cerro Prieto">Cerro Prieto</option>';
+            Nombre_options_str  += '<option value="Cerro de Enmedio">Cerro de Enmedio</option>';
+            Nombre_options_str  += '<option value="Chapultepec">Chapultepec</option>';
+            Nombre_options_str  += '<option value="Chato">Chato</option>';
+            Nombre_options_str  += '<option value="Ciénega">Ciénega</option>';
+            Nombre_options_str  += '<option value="Colorado">Colorado</option>';
+            Nombre_options_str  += '<option value="Conos La Trampa">Conos La Trampa</option>';
+            Nombre_options_str  += '<option value="Conos y derrames Pelón">Conos y derrames Pelón</option>';
+            Nombre_options_str  += '<option value="Conos y derrames Zapata">Conos y derrames Zapata</option>';
+            Nombre_options_str  += '<option value="Conos y maar Rancho Seco-Alberca">Conos y maar Rancho Seco-Alberca</option>';
+            Nombre_options_str  += '<option value="Conos y spatters Coro Grande">Conos y spatters Coro Grande</option>';
+            Nombre_options_str  += '<option value="Conos y spatters Melón-Tendeparacua">Conos y spatters Melón-Tendeparacua</option>';
+            Nombre_options_str  += '<option value="Coro Grande">Coro Grande</option>';
+            Nombre_options_str  += '<option value="Depósitos Piroclásticos El Porvenir">Depósitos Piroclásticos El Porvenir</option>';
+            Nombre_options_str  += '<option value="Depósitos epiclásticos">Depósitos epiclásticos</option>';
+            Nombre_options_str  += '<option value="Depósitos superficiales">Depósitos superficiales</option>';
+            Nombre_options_str  += '<option value="Derrames de lava Cuitzeo">Derrames de lava Cuitzeo</option>';
+            Nombre_options_str  += '<option value="Derrames de lava La Leonera">Derrames de lava La Leonera</option>';
+            Nombre_options_str  += '<option value="Domos El Burro-La Taza">Domos El Burro-La Taza</option>';
+            Nombre_options_str  += '<option value="Domos El Tzirate-Huracán">Domos El Tzirate-Huracán</option>';
+            Nombre_options_str  += '<option value="Domos La Cruz">Domos La Cruz</option>';
+            Nombre_options_str  += '<option value="Domos La Muela">Domos La Muela</option>';
+            Nombre_options_str  += '<option value="Domos del Punhuato">Domos del Punhuato</option>';
+            Nombre_options_str  += '<option value="Domos postcaldera de Atécuaro">Domos postcaldera de Atécuaro</option>';
+            Nombre_options_str  += '<option value="Domos y derrames Mil Cumbres">Domos y derrames Mil Cumbres</option>';
+            Nombre_options_str  += '<option value="Domos y derrames Sta. Genoveva">Domos y derrames Sta. Genoveva</option>';
+            Nombre_options_str  += '<option value="Domos y derrames Zoromuta-Divisadero">Domos y derrames Zoromuta-Divisadero</option>';
+            Nombre_options_str  += '<option value="El Agua">El Agua</option>';
+            Nombre_options_str  += '<option value="El Aguacate">El Aguacate</option>';
+            Nombre_options_str  += '<option value="El Aguila">El Aguila</option>';
+            Nombre_options_str  += '<option value="El Alacrán">El Alacrán</option>';
+            Nombre_options_str  += '<option value="El Burro">El Burro</option>';
+            Nombre_options_str  += '<option value="El Cambio">El Cambio</option>';
+            Nombre_options_str  += '<option value="El Caracol">El Caracol</option>';
+            Nombre_options_str  += '<option value="El Carpintero">El Carpintero</option>';
+            Nombre_options_str  += '<option value="El Cocinero">El Cocinero</option>';
+            Nombre_options_str  += '<option value="El Correo">El Correo</option>';
+            Nombre_options_str  += '<option value="El Divisadero">El Divisadero</option>';
+            Nombre_options_str  += '<option value="El Durazno">El Durazno</option>';
+            Nombre_options_str  += '<option value="El Estadio">El Estadio</option>';
+            Nombre_options_str  += '<option value="El Frijol">El Frijol</option>';
+            Nombre_options_str  += '<option value="El Gallo">El Gallo</option>';
+            Nombre_options_str  += '<option value="El Guayabito">El Guayabito</option>';
+            Nombre_options_str  += '<option value="El Huracán">El Huracán</option>';
+            Nombre_options_str  += '<option value="El Jacal">El Jacal</option>';
+            Nombre_options_str  += '<option value="El Laurelito">El Laurelito</option>';
+            Nombre_options_str  += '<option value="El Malacate">El Malacate</option>';
+            Nombre_options_str  += '<option value="El Melón">El Melón</option>';
+            Nombre_options_str  += '<option value="El Metatero">El Metatero</option>';
+            Nombre_options_str  += '<option value="El Molcajete">El Molcajete</option>';
+            Nombre_options_str  += '<option value="El Muerto">El Muerto</option>';
+            Nombre_options_str  += '<option value="El Olvido">El Olvido</option>';
+            Nombre_options_str  += '<option value="El Palmar">El Palmar</option>';
+            Nombre_options_str  += '<option value="El Paredón">El Paredón</option>';
+            Nombre_options_str  += '<option value="El Picacho">El Picacho</option>';
+            Nombre_options_str  += '<option value="El Pinal">El Pinal</option>';
+            Nombre_options_str  += '<option value="El Pozole">El Pozole</option>';
+            Nombre_options_str  += '<option value="El Puerto">El Puerto</option>';
+            Nombre_options_str  += '<option value="El Remolino">El Remolino</option>';
+            Nombre_options_str  += '<option value="El Reparo">El Reparo</option>';
+            Nombre_options_str  += '<option value="El Sauz">El Sauz</option>';
+            Nombre_options_str  += '<option value="El Tejamanil">El Tejamanil</option>';
+            Nombre_options_str  += '<option value="El Tigre">El Tigre</option>';
+            Nombre_options_str  += '<option value="El Tlacuache">El Tlacuache</option>';
+            Nombre_options_str  += '<option value="El Tremecino">El Tremecino</option>';
+            Nombre_options_str  += '<option value="El Trujillo">El Trujillo</option>';
+            Nombre_options_str  += '<option value="El Tularcillo">El Tularcillo</option>';
+            Nombre_options_str  += '<option value="El Tzirate">El Tzirate</option>';
+            Nombre_options_str  += '<option value="El Varal">El Varal</option>';
+            Nombre_options_str  += '<option value="El Zopilote">El Zopilote</option>';
+            Nombre_options_str  += '<option value="Escudo El Frijol">Escudo El Frijol</option>';
+            Nombre_options_str  += '<option value="Escudos Quinceo-Picacho">Escudos Quinceo-Picacho</option>';
+            Nombre_options_str  += '<option value="Escudos Águila-Tetillas">Escudos Águila-Tetillas</option>';
+            Nombre_options_str  += '<option value="Genoveva">Genoveva</option>';
+            Nombre_options_str  += '<option value="Granjas">Granjas</option>';
+            Nombre_options_str  += '<option value="Guadalupe">Guadalupe</option>';
+            Nombre_options_str  += '<option value="Guajate">Guajate</option>';
+            Nombre_options_str  += '<option value="Huertitas">Huertitas</option>';
+            Nombre_options_str  += '<option value="Huiramos">Huiramos</option>';
+            Nombre_options_str  += '<option value="Icuacato">Icuacato</option>';
+            Nombre_options_str  += '<option value="Ignimbrita Atécuaro-Morelia">Ignimbrita Atécuaro-Morelia</option>';
+            Nombre_options_str  += '<option value="Ignimbrita Cuitzeo">Ignimbrita Cuitzeo</option>';
+            Nombre_options_str  += '<option value="Ignimbrita La Escalera-Puerto La Sosa">Ignimbrita La Escalera-Puerto La Sosa</option>';
+            Nombre_options_str  += '<option value="Iratzio">Iratzio</option>';
+            Nombre_options_str  += '<option value="Irauco">Irauco</option>';
+            Nombre_options_str  += '<option value="Jamanal">Jamanal</option>';
+            Nombre_options_str  += '<option value="Joyitas">Joyitas</option>';
+            Nombre_options_str  += '<option value="Joyitas del Valle">Joyitas del Valle</option>';
+            Nombre_options_str  += '<option value="La Alberca">La Alberca</option>';
+            Nombre_options_str  += '<option value="La Alberquilla">La Alberquilla</option>';
+            Nombre_options_str  += '<option value="La Arena">La Arena</option>';
+            Nombre_options_str  += '<option value="La Caja">La Caja</option>';
+            Nombre_options_str  += '<option value="La Camba">La Camba</option>';
+            Nombre_options_str  += '<option value="La Cruz">La Cruz</option>';
+            Nombre_options_str  += '<option value="La Escalera">La Escalera</option>';
+            Nombre_options_str  += '<option value="La Granja">La Granja</option>';
+            Nombre_options_str  += '<option value="La Loma">La Loma</option>';
+            Nombre_options_str  += '<option value="La Mesa">La Mesa</option>';
+            Nombre_options_str  += '<option value="La Mina">La Mina</option>';
+            Nombre_options_str  += '<option value="La Muela">La Muela</option>';
+            Nombre_options_str  += '<option value="La Nieve">La Nieve</option>';
+            Nombre_options_str  += '<option value="La Palmilla">La Palmilla</option>';
+            Nombre_options_str  += '<option value="La Panhuata">La Panhuata</option>';
+            Nombre_options_str  += '<option value="La Pitahaya">La Pitahaya</option>';
+            Nombre_options_str  += '<option value="La Providencia">La Providencia</option>';
+            Nombre_options_str  += '<option value="La Puente">La Puente</option>';
+            Nombre_options_str  += '<option value="La Rosa de San Juan">La Rosa de San Juan</option>';
+            Nombre_options_str  += '<option value="La Sierrita">La Sierrita</option>';
+            Nombre_options_str  += '<option value="La Taza">La Taza</option>';
+            Nombre_options_str  += '<option value="La Tirimicua">La Tirimicua</option>';
+            Nombre_options_str  += '<option value="La Torrecilla">La Torrecilla</option>';
+            Nombre_options_str  += '<option value="La Trampa">La Trampa</option>';
+            Nombre_options_str  += '<option value="La Tranca">La Tranca</option>';
+            Nombre_options_str  += '<option value="La Yerbabuena">La Yerbabuena</option>';
+            Nombre_options_str  += '<option value="Lagunillas">Lagunillas</option>';
+            Nombre_options_str  += '<option value="Las Albercas">Las Albercas</option>';
+            Nombre_options_str  += '<option value="Las Cuevas">Las Cuevas</option>';
+            Nombre_options_str  += '<option value="Las Juntas">Las Juntas</option>';
+            Nombre_options_str  += '<option value="Las Rosas">Las Rosas</option>';
+            Nombre_options_str  += '<option value="Las Tablas">Las Tablas</option>';
+            Nombre_options_str  += '<option value="Las Tetillas">Las Tetillas</option>';
+            Nombre_options_str  += '<option value="Las Vigas">Las Vigas</option>';
+            Nombre_options_str  += '<option value="Los Caballos">Los Caballos</option>';
+            Nombre_options_str  += '<option value="Los Cimientos">Los Cimientos</option>';
+            Nombre_options_str  += '<option value="Los Corrales">Los Corrales</option>';
+            Nombre_options_str  += '<option value="Los Huapes">Los Huapes</option>';
+            Nombre_options_str  += '<option value="Los Lobos">Los Lobos</option>';
+            Nombre_options_str  += '<option value="Los Puercos">Los Puercos</option>';
+            Nombre_options_str  += '<option value="Mesa El Gachupin">Mesa El Gachupin</option>';
+            Nombre_options_str  += '<option value="Pastores">Pastores</option>';
+            Nombre_options_str  += '<option value="Petrerillos">Petrerillos</option>';
+            Nombre_options_str  += '<option value="Peña del Agua">Peña del Agua</option>';
+            Nombre_options_str  += '<option value="Prieto">Prieto</option>';
+            Nombre_options_str  += '<option value="Puentecillas">Puentecillas</option>';
+            Nombre_options_str  += '<option value="Puerto Blanco">Puerto Blanco</option>';
+            Nombre_options_str  += '<option value="Puerto La Silleta">Puerto La Silleta</option>';
+            Nombre_options_str  += '<option value="Puerto La Sosa">Puerto La Sosa</option>';
+            Nombre_options_str  += '<option value="Puerto de Celaya">Puerto de Celaya</option>';
+            Nombre_options_str  += '<option value="Punhuato">Punhuato</option>';
+            Nombre_options_str  += '<option value="Quinceo">Quinceo</option>';
+            Nombre_options_str  += '<option value="Rancho Seco">Rancho Seco</option>';
+            Nombre_options_str  += '<option value="San Bernabé">San Bernabé</option>';
+            Nombre_options_str  += '<option value="San Isidro">San Isidro</option>';
+            Nombre_options_str  += '<option value="San Rafael Coapa">San Rafael Coapa</option>';
+            Nombre_options_str  += '<option value="Sanambo">Sanambo</option>';
+            Nombre_options_str  += '<option value="Santa Cruz">Santa Cruz</option>';
+            Nombre_options_str  += '<option value="Santa Genoveva">Santa Genoveva</option>';
+            Nombre_options_str  += '<option value="Santas Marías">Santas Marías</option>';
+            Nombre_options_str  += '<option value="Secuencia fluvio-lacustre Morelia-Charo">Secuencia fluvio-lacustre Morelia-Charo</option>';
+            Nombre_options_str  += '<option value="Sucesión Tafetán">Sucesión Tafetán</option>';
+            Nombre_options_str  += '<option value="Tanimireche">Tanimireche</option>';
+            Nombre_options_str  += '<option value="Tariacuaro">Tariacuaro</option>';
+            Nombre_options_str  += '<option value="Tendeparacua">Tendeparacua</option>';
+            Nombre_options_str  += '<option value="Teremendo Jasso">Teremendo Jasso</option>';
+            Nombre_options_str  += '<option value="Teterio">Teterio</option>';
+            Nombre_options_str  += '<option value="Torrecillas">Torrecillas</option>';
+            Nombre_options_str  += '<option value="Tumbisca">Tumbisca</option>';
+            Nombre_options_str  += '<option value="Tzintzimacato Chico">Tzintzimacato Chico</option>';
+            Nombre_options_str  += '<option value="Unguaran">Unguaran</option>';
+            Nombre_options_str  += '<option value="Yahuarato">Yahuarato</option>';
+            Nombre_options_str  += '<option value="Yopécuaro">Yopécuaro</option>';
+            Nombre_options_str  += '<option value="Yuretzio">Yuretzio</option>';
+            Nombre_options_str  += '<option value="Zajo">Zajo</option>';
+            Nombre_options_str  += '<option value="Zajo Chico">Zajo Chico</option>';
+            Nombre_options_str  += '<option value="Zajo Grande">Zajo Grande</option>';
+            Nombre_options_str  += '<option value="Zapata">Zapata</option>';
+            Nombre_options_str  += '<option value="Zirapio">Zirapio</option>';
+            Nombre_options_str  += '<option value="Ziratitos">Ziratitos</option>';
+            Nombre_options_str  += '<option value="Zoromuta">Zoromuta</option>';
+            sel_Nombre.innerHTML = Nombre_options_str;
+            div_Nombre.appendChild(sel_Nombre);
+            var lab_Nombre = document.createElement('div');
+            lab_Nombre.innerHTML = 'Nombre';
+            lab_Nombre.className = 'filterlabel';
+            div_Nombre.appendChild(lab_Nombre);
+            var reset_Nombre = document.createElement('div');
+            reset_Nombre.innerHTML = 'clear filter';
+            reset_Nombre.className = 'filterlabel';
+            reset_Nombre.onclick = function() {
+                var options = document.getElementById("sel_Nombre").options;
+                for (var i=0; i < options.length; i++) {
+                    options[i].selected = false;
+                }
+                filterFunc();
+            };
+            div_Nombre.appendChild(reset_Nombre);
+        </script>
+    </body>
+</html>
